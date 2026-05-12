@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { useAuth } from './auth-provider'
 import { ClothingItem } from '@/lib/types'
 import {
   Dialog,
@@ -14,12 +15,13 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { MapPin, ArrowLeftRight, Loader2, CheckCircle2 } from 'lucide-react'
+import { MapPin, ArrowLeftRight, Loader2, CheckCircle2, LogIn } from 'lucide-react'
 
 interface ItemDetailDialogProps {
   item: ClothingItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onLoginRequired?: () => void
 }
 
 const conditionLabels = {
@@ -29,20 +31,19 @@ const conditionLabels = {
   'fair': 'Fair condition',
 }
 
-export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogProps) {
+export function ItemDetailDialog({ item, open, onOpenChange, onLoginRequired }: ItemDetailDialogProps) {
+  const { user } = useAuth()
   const [showSwapForm, setShowSwapForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [formData, setFormData] = useState({
-    proposerName: '',
-    proposerEmail: '',
     offerDescription: '',
     message: '',
   })
 
   const handleSubmitSwap = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!item) return
+    if (!item || !user) return
 
     setSubmitting(true)
     try {
@@ -50,8 +51,14 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
           itemId: item._id,
+          itemTitle: item.title,
+          itemOwnerId: item.ownerId,
+          proposerId: user._id,
+          proposerName: user.name,
+          proposerEmail: user.email,
+          offerDescription: formData.offerDescription,
+          message: formData.message,
         }),
       })
 
@@ -61,8 +68,6 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
           setShowSwapForm(false)
           setSubmitted(false)
           setFormData({
-            proposerName: '',
-            proposerEmail: '',
             offerDescription: '',
             message: '',
           })
@@ -75,6 +80,14 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
     }
   }
 
+  const handleProposeSwap = () => {
+    if (!user) {
+      onLoginRequired?.()
+      return
+    }
+    setShowSwapForm(true)
+  }
+
   const handleClose = (open: boolean) => {
     if (!open) {
       setShowSwapForm(false)
@@ -84,6 +97,8 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
   }
 
   if (!item) return null
+
+  const isOwnItem = user && item.ownerId === user._id
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -142,14 +157,27 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
               </div>
             </div>
 
-            {!showSwapForm ? (
+            {isOwnItem ? (
+              <div className="p-4 rounded-xl bg-primary/5 text-center">
+                <p className="text-muted-foreground">This is your item</p>
+              </div>
+            ) : !showSwapForm ? (
               <Button
                 size="lg"
                 className="w-full rounded-full font-medium"
-                onClick={() => setShowSwapForm(true)}
+                onClick={handleProposeSwap}
               >
-                <ArrowLeftRight className="w-4 h-4 mr-2" />
-                Propose a Swap
+                {user ? (
+                  <>
+                    <ArrowLeftRight className="w-4 h-4 mr-2" />
+                    Propose a Swap
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign in to Swap
+                  </>
+                )}
               </Button>
             ) : submitted ? (
               <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -161,32 +189,9 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
               </div>
             ) : (
               <form onSubmit={handleSubmitSwap} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="name" className="text-sm font-medium">
-                      Your Name
-                    </Label>
-                    <Input
-                      id="name"
-                      value={formData.proposerName}
-                      onChange={(e) => setFormData({ ...formData, proposerName: e.target.value })}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email" className="text-sm font-medium">
-                      Email
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.proposerEmail}
-                      onChange={(e) => setFormData({ ...formData, proposerEmail: e.target.value })}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
+                <div className="p-3 rounded-lg bg-secondary/30">
+                  <p className="text-sm text-muted-foreground mb-1">Proposing as:</p>
+                  <p className="font-medium text-foreground">{user?.name}</p>
                 </div>
                 <div>
                   <Label htmlFor="offer" className="text-sm font-medium">

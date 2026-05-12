@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { DM_Sans, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { AuthProvider } from '@/components/auth-provider'
 import './globals.css'
 
 const dmSans = DM_Sans({ 
@@ -32,7 +33,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} ${playfair.variable} bg-background`}>
       <body className="font-sans antialiased">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

@@ -5,9 +5,10 @@ import { Leaf, ArrowDown } from 'lucide-react'
 
 interface HeroProps {
   onBrowseClick: () => void
+  onGetStarted?: () => void
 }
 
-export function Hero({ onBrowseClick }: HeroProps) {
+export function Hero({ onBrowseClick, onGetStarted }: HeroProps) {
   return (
     <section className="relative min-h-[70vh] flex flex-col items-center justify-center px-6 py-16 text-center overflow-hidden">
       {/* Decorative background elements */}
@@ -44,8 +45,9 @@ export function Hero({ onBrowseClick }: HeroProps) {
             variant="outline"
             size="lg"
             className="px-8 py-6 text-base font-medium rounded-full border-2"
+            onClick={onGetStarted}
           >
-            How It Works
+            Join Now
           </Button>
         </div>
 

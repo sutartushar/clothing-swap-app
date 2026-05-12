@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Image from 'next/image'
+import { useAuth } from './auth-provider'
 import { CATEGORIES, SIZES, CONDITIONS } from '@/lib/types'
 import {
   Dialog,
@@ -29,6 +30,7 @@ interface AddItemDialogProps {
 }
 
 export function AddItemDialog({ open, onOpenChange, onItemAdded }: AddItemDialogProps) {
+  const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -41,8 +43,6 @@ export function AddItemDialog({ open, onOpenChange, onItemAdded }: AddItemDialog
     size: '',
     condition: '',
     imageUrl: '',
-    ownerName: '',
-    ownerLocation: '',
   })
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,7 +80,7 @@ export function AddItemDialog({ open, onOpenChange, onItemAdded }: AddItemDialog
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.imageUrl) return
+    if (!formData.imageUrl || !user) return
 
     setSubmitting(true)
     try {
@@ -94,10 +94,11 @@ export function AddItemDialog({ open, onOpenChange, onItemAdded }: AddItemDialog
           size: formData.size,
           condition: formData.condition,
           imageUrl: formData.imageUrl,
+          ownerId: user._id,
           owner: {
-            name: formData.ownerName,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.ownerName}`,
-            location: formData.ownerLocation,
+            name: user.name,
+            avatar: user.avatar,
+            location: user.location || 'Location not set',
           },
         }),
       })
@@ -124,8 +125,6 @@ export function AddItemDialog({ open, onOpenChange, onItemAdded }: AddItemDialog
       size: '',
       condition: '',
       imageUrl: '',
-      ownerName: '',
-      ownerLocation: '',
     })
     setImagePreview(null)
     setSubmitted(false)
@@ -139,6 +138,8 @@ export function AddItemDialog({ open, onOpenChange, onItemAdded }: AddItemDialog
       fileInputRef.current.value = ''
     }
   }
+
+  if (!user) return null
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -302,33 +303,13 @@ export function AddItemDialog({ open, onOpenChange, onItemAdded }: AddItemDialog
               </Select>
             </div>
 
-            {/* Owner Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="ownerName" className="text-sm font-medium">
-                  Your Name
-                </Label>
-                <Input
-                  id="ownerName"
-                  value={formData.ownerName}
-                  onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
-                  required
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="ownerLocation" className="text-sm font-medium">
-                  Location
-                </Label>
-                <Input
-                  id="ownerLocation"
-                  placeholder="e.g., Brooklyn, NY"
-                  value={formData.ownerLocation}
-                  onChange={(e) => setFormData({ ...formData, ownerLocation: e.target.value })}
-                  required
-                  className="mt-1"
-                />
-              </div>
+            {/* Posting As Info */}
+            <div className="p-3 rounded-lg bg-secondary/50">
+              <p className="text-sm text-muted-foreground mb-1">Posting as:</p>
+              <p className="font-medium text-foreground">{user.name}</p>
+              {user.location && (
+                <p className="text-sm text-muted-foreground">{user.location}</p>
+              )}
             </div>
 
             <Button

@@ -1,3 +1,16 @@
+export interface User {
+  _id?: string
+  name: string
+  email: string
+  password: string
+  avatar: string
+  location: string
+  itemsListed: number
+  swapsDone: number
+  co2Saved: number
+  createdAt: Date
+}
+
 export interface ClothingItem {
   _id?: string
   title: string
@@ -6,6 +19,7 @@ export interface ClothingItem {
   size: string
   condition: 'new' | 'like-new' | 'good' | 'fair'
   imageUrl: string
+  ownerId: string
   owner: {
     name: string
     avatar: string
@@ -17,11 +31,23 @@ export interface ClothingItem {
 export interface SwapProposal {
   _id?: string
   itemId: string
+  itemTitle: string
+  itemOwnerId: string
+  proposerId: string
   proposerName: string
   proposerEmail: string
   message: string
   offerDescription: string
   status: 'pending' | 'accepted' | 'declined'
+  createdAt: Date
+}
+
+export interface ChatMessage {
+  _id?: string
+  swapId: string
+  senderId: string
+  senderName: string
+  message: string
   createdAt: Date
 }
 

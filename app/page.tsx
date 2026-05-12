@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useAuth } from '@/components/auth-provider'
 import { ClothingItem, SwapProposal } from '@/lib/types'
 import { Hero } from '@/components/hero'
 import { CategoryFilter } from '@/components/category-filter'
@@ -10,10 +11,14 @@ import { AddItemDialog } from '@/components/add-item-dialog'
 import { BottomNav } from '@/components/bottom-nav'
 import { SwapsView } from '@/components/swaps-view'
 import { ProfileView } from '@/components/profile-view'
+import { AuthDialog } from '@/components/auth-dialog'
+import { Loader2, Lock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 type NavItem = 'browse' | 'swaps' | 'add' | 'profile'
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth()
   const [activeNav, setActiveNav] = useState<NavItem>('browse')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [items, setItems] = useState<ClothingItem[]>([])
@@ -23,6 +28,8 @@ export default function Home() {
   const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [authDialogOpen, setAuthDialogOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const browseRef = useRef<HTMLDivElement>(null)
 
   const fetchItems = useCallback(async () => {
@@ -41,6 +48,7 @@ export default function Home() {
   }, [selectedCategory])
 
   const fetchSwaps = useCallback(async () => {
+    if (!user) return
     setLoadingSwaps(true)
     try {
       const response = await fetch('/api/swaps')
@@ -52,17 +60,17 @@ export default function Home() {
     } finally {
       setLoadingSwaps(false)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
     fetchItems()
   }, [fetchItems])
 
   useEffect(() => {
-    if (activeNav === 'swaps') {
+    if (activeNav === 'swaps' && user) {
       fetchSwaps()
     }
-  }, [activeNav, fetchSwaps])
+  }, [activeNav, fetchSwaps, user])
 
   const handleBrowseClick = () => {
     setActiveNav('browse')
@@ -75,7 +83,22 @@ export default function Home() {
   }
 
   const handleAddClick = () => {
+    if (!user) {
+      setAuthMode('login')
+      setAuthDialogOpen(true)
+      return
+    }
     setAddDialogOpen(true)
+  }
+
+  const handleNavChange = (nav: NavItem) => {
+    // Profile and Swaps require login
+    if ((nav === 'profile' || nav === 'swaps') && !user) {
+      setAuthMode('login')
+      setAuthDialogOpen(true)
+      return
+    }
+    setActiveNav(nav)
   }
 
   const handleItemAdded = () => {
@@ -83,11 +106,54 @@ export default function Home() {
     setActiveNav('browse')
   }
 
+  const handleLoginRequired = () => {
+    setDetailDialogOpen(false)
+    setAuthMode('login')
+    setAuthDialogOpen(true)
+  }
+
+  const openRegister = () => {
+    setAuthMode('register')
+    setAuthDialogOpen(true)
+  }
+
+  // Protected content component
+  const ProtectedContent = ({ children }: { children: React.ReactNode }) => {
+    if (authLoading) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      )
+    }
+
+    if (!user) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+          <div className="w-16 h-16 mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <Lock className="w-8 h-8 text-primary" />
+          </div>
+          <h3 className="font-serif text-xl font-medium text-foreground mb-2">
+            Sign In Required
+          </h3>
+          <p className="text-muted-foreground max-w-sm mb-6">
+            Please sign in to access this feature
+          </p>
+          <Button onClick={() => setAuthDialogOpen(true)}>
+            Sign In
+          </Button>
+        </div>
+      )
+    }
+
+    return <>{children}</>
+  }
+
   return (
     <main className="min-h-screen pb-24">
       {activeNav === 'browse' && (
         <>
-          <Hero onBrowseClick={handleBrowseClick} />
+          <Hero onBrowseClick={handleBrowseClick} onGetStarted={openRegister} />
           
           <section ref={browseRef} className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto py-12">
             <div className="text-center mb-10">
@@ -125,19 +191,27 @@ export default function Home() {
               Track your swap proposals and activity
             </p>
           </div>
-          <SwapsView swaps={swaps} loading={loadingSwaps} />
+          <ProtectedContent>
+            <SwapsView 
+              swaps={swaps} 
+              loading={loadingSwaps} 
+              onSwapUpdate={fetchSwaps}
+            />
+          </ProtectedContent>
         </section>
       )}
 
       {activeNav === 'profile' && (
         <section className="px-4 md:px-6 lg:px-8 max-w-lg mx-auto py-8">
-          <ProfileView />
+          <ProtectedContent>
+            <ProfileView />
+          </ProtectedContent>
         </section>
       )}
 
       <BottomNav
         active={activeNav}
-        onChange={setActiveNav}
+        onChange={handleNavChange}
         onAddClick={handleAddClick}
       />
 
@@ -145,12 +219,19 @@ export default function Home() {
         item={selectedItem}
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
+        onLoginRequired={handleLoginRequired}
       />
 
       <AddItemDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         onItemAdded={handleItemAdded}
+      />
+
+      <AuthDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        defaultMode={authMode}
       />
     </main>
   )
